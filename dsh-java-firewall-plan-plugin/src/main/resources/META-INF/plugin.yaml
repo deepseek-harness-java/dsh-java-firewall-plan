@@ -1,0 +1,6 @@
+id: dsh-java-firewall-plan-plugin
+name: DSH Port Guard Plugin
+version: 0.1.0
+author: Xiaofuge
+description: Port guard tools (snapshot ports, process of port, conflict diag, firewall rule draft, exposure report) for DeepSeek Harness. Drafts only - no kill, no firewall exec.
+entrypoint: cn.xiaofuge.dsh.com.dsh.firewallplan.plugin.DshFirewallPlanPlugin

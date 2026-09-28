@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DSH Port Guard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">PG</div>
+      <div><strong>Port Guard</strong><span>Powered by Harness</span></div>
+    </div>
+    <button class="primary block" id="newConversation">＋ 新对话</button>
+    <div class="section-label"><span>对话记录</span></div>
+    <div id="conversationList" class="item-list conversation-list"></div>
+  </aside>
+
+  <main class="main">
+    <header class="main-header">
+      <div>
+        <div class="title-row">
+          <span id="statusDot" class="dot"></span>
+          <h1 id="currentName">端口守卫</h1>
+        </div>
+        <p id="currentDetail">端口快照解析 · 冲突诊断 · 防火墙草稿（不 kill 进程、不改防火墙）</p>
+      </div>
+      <div class="header-actions">
+        <button class="ghost" id="openDraft">🛡 防火墙草稿</button>
+        <button class="ghost icon-btn" id="toggleTheme" title="切换主题">🌙</button>
+      </div>
+    </header>
+
+    <div id="workspace" class="workspace">
+      <section class="center">
+        <div id="chatMessages" class="chat-scroll"></div>
+        <div class="composer-wrap">
+          <div id="streamStatus" class="stream-status hidden">
+            <span id="streamStatusText"><span class="status-spinner"></span>AI 正在思考</span>
+          </div>
+          <div class="composer">
+            <textarea id="chatInput" rows="1" placeholder="粘贴 lsof/netstat 快照让 AI 分析，例如：帮我看看哪些端口暴露在公网、有没有冲突"></textarea>
+            <div class="composer-bar">
+              <span class="composer-hint"><kbd>⌘</kbd>+<kbd>↵</kbd> 发送 · 只读分析 · 草稿不执行</span>
+              <div class="composer-actions">
+                <button class="ghost small hidden" id="stopStream">停止</button>
+                <button class="send-btn" id="sendMessage" title="发送">↑</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="resource-sidebar">
+        <div class="resource-scroll">
+          <div class="resource-header">
+            <b>端口工作台</b>
+            <button class="ghost small" id="refreshResource">刷新</button>
+          </div>
+          <nav class="resource-tabs">
+            <button data-resource-tab="snapshot" class="active">快照</button>
+            <button data-resource-tab="process">归属</button>
+            <button data-resource-tab="conflicts">冲突</button>
+            <button data-resource-tab="exposure">暴露面</button>
+          </nav>
+          <section class="panel" data-tab="snapshot">
+            <div class="panel-title"><span>监听快照</span></div>
+            <div class="panel-body" style="padding:8px">
+              <textarea id="listenInput" rows="7" style="width:100%;font:12px/1.5 ui-monospace,monospace;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)" placeholder="粘贴 lsof -P -i -n | grep LISTEN 输出…&#10;nginx   1234 deploy 22u IPv4 0x.. TCP *:8080 (LISTEN)&#10;mysqld  999  mysql  30u IPv4 0x.. TCP *:3306 (LISTEN)"></textarea>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <button class="primary small" id="snapshotBtn">解析快照</button>
+                <button class="ghost small" id="probeBtn">本机探测</button>
+              </div>
+              <div id="snapshotResult" class="muted small" style="margin-top:8px">解析结果会显示在这里</div>
+            </div>
+          </section>
+          <section class="panel hidden" data-tab="process">
+            <div class="panel-title"><span>端口归属</span></div>
+            <div class="panel-body" style="padding:8px">
+              <div style="display:flex;gap:6px;margin-bottom:8px">
+                <input id="portInput" placeholder="端口号，如 8080" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit">
+                <button class="ghost small" id="processBtn">查占用</button>
+              </div>
+              <div id="processResult" class="muted small">用上方快照文本查询端口被谁占用</div>
+            </div>
+          </section>
+          <section class="panel hidden" data-tab="conflicts">
+            <div class="panel-title"><span>冲突诊断</span></div>
+            <div class="panel-body" style="padding:8px">
+              <button class="ghost small" id="conflictBtn">用上方快照诊断</button>
+              <div id="conflictResult" class="muted small" style="margin-top:8px">多进程抢端口 / 动态区监听 / DB 公网暴露</div>
+            </div>
+          </section>
+          <section class="panel hidden" data-tab="exposure">
+            <div class="panel-title"><span>暴露面报告</span></div>
+            <div class="panel-body" style="padding:8px">
+              <button class="ghost small" id="exposureBtn">用上方快照出报告</button>
+              <div id="exposureResult" class="muted small" style="margin-top:8px">公网可达端口清单 + 分级处置</div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div class="modal hidden" id="draftModal">
+    <form class="modal-card" id="draftForm" style="width:520px">
+      <h2>防火墙规则草稿</h2>
+      <label>规则风格
+        <select name="style" style="font:inherit;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)">
+          <option value="ufw">ufw（Ubuntu/Debian）</option>
+          <option value="iptables">iptables</option>
+          <option value="pf">pf（macOS/BSD）</option>
+          <option value="cloud">cloud（云安全组）</option>
+        </select>
+      </label>
+      <label>放行端口<input name="allowPort" placeholder="443" value="443"></label>
+      <label>来源网段<input name="source" placeholder="any 或 10.0.0.0/8"></label>
+      <label>补充说明<input name="denyNote" placeholder="如：22 仅限堡垒机网段"></label>
+      <p class="muted small">只生成草稿文本，不会执行任何命令。执行顺序：先放行 SSH 再启用，防止锁死自己。</p>
+      <div class="modal-actions"><button type="button" class="ghost" id="cancelDraftModal">取消</button><button class="primary">生成草稿</button></div>
+    </form>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
